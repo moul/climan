@@ -7,33 +7,40 @@ import (
 	"log"
 	"os"
 
+	"github.com/peterbourgon/ff/v3"
 	"moul.io/climan"
 )
 
-func Example() {
-	var opts struct {
-		Debug bool
-	}
+var opts struct {
+	debug   bool
+	fooFlag string
+}
 
+func Example() {
 	root := &climan.Command{
 		Name:       "example",
 		ShortUsage: "example [global flags] <subcommand> [flags] [args...]",
 		ShortHelp:  "example's short help",
 		LongHelp:   "example's longer help.\nwith more details.",
 		FlagSetBuilder: func(fs *flag.FlagSet) {
-			fs.BoolVar(&opts.Debug, "debug", opts.Debug, "debug mode")
+			fs.BoolVar(&opts.debug, "debug", opts.debug, "debug mode")
 		},
-		Exec: func(ctx context.Context, args []string) error {
-			fmt.Println("args", args)
-			return nil
-		},
+		Exec: doRoot,
 		Subcommands: []*climan.Command{
 			&climan.Command{
-				Name: "sub",
+				Name: "foo",
+				FlagSetBuilder: func(fs *flag.FlagSet) {
+					fs.BoolVar(&opts.debug, "debug", opts.debug, "debug mode")
+					fs.StringVar(&opts.fooFlag, "flag", opts.fooFlag, "foo's flag")
+				},
+				ShortUsage: "foo [flags]",
+				ShortHelp:  "foo things",
+				Exec:       doFoo,
 			},
 		},
-		// Options: []climan.Option{climan.WithEnvVarPrefix("EXAMPLE")},
+		FFOptions: []ff.Option{ff.WithEnvVarPrefix("EXAMPLE")},
 	}
+
 	if err := root.Parse(os.Args[1:]); err != nil {
 		log.Fatal(fmt.Errorf("parse error: %w", err))
 	}
@@ -41,4 +48,14 @@ func Example() {
 	if err := root.Run(context.Background()); err != nil {
 		log.Fatal(fmt.Errorf("run error: %w", err))
 	}
+}
+
+func doRoot(ctx context.Context, args []string) error {
+	fmt.Println("args", args)
+	return nil
+}
+
+func doFoo(ctx context.Context, args []string) error {
+	fmt.Println("flag", opts.fooFlag)
+	return nil
 }

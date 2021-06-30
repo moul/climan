@@ -36,46 +36,63 @@ Changes include:
 [embedmd]:# (example_test.go /import\ / $)
 ```go
 import (
-    "context"
-    "flag"
-    "fmt"
-    "log"
-    "os"
+	"context"
+	"flag"
+	"fmt"
+	"log"
+	"os"
 
-    "moul.io/climan"
+	"github.com/peterbourgon/ff/v3"
+	"moul.io/climan"
 )
 
+var opts struct {
+	debug   bool
+	fooFlag string
+}
+
 func Example() {
-    var opts struct {
-        Debug bool
-    }
+	root := &climan.Command{
+		Name:       "example",
+		ShortUsage: "example [global flags] <subcommand> [flags] [args...]",
+		ShortHelp:  "example's short help",
+		LongHelp:   "example's longer help.\nwith more details.",
+		FlagSetBuilder: func(fs *flag.FlagSet) {
+			fs.BoolVar(&opts.debug, "debug", opts.debug, "debug mode")
+		},
+		Exec: doRoot,
+		Subcommands: []*climan.Command{
+			&climan.Command{
+				Name: "foo",
+				FlagSetBuilder: func(fs *flag.FlagSet) {
+					fs.BoolVar(&opts.debug, "debug", opts.debug, "debug mode")
+					fs.StringVar(&opts.fooFlag, "flag", opts.fooFlag, "foo's flag")
+				},
+				ShortUsage: "foo [flags]",
+				ShortHelp:  "foo things",
+				Exec:       doFoo,
+			},
+		},
+		FFOptions: []ff.Option{ff.WithEnvVarPrefix("EXAMPLE")},
+	}
 
-    root := &climan.Command{
-        Name:       "example",
-        ShortUsage: "example [global flags] <subcommand> [flags] [args...]",
-        ShortHelp:  "example's short help",
-        LongHelp:   "example's longer help.\nwith more details.",
-        FlagsBuilder: func(fs *flag.FlagSet) {
-            fs.BoolVar(&opts.Debug, "debug", opts.Debug, "debug mode")
-        },
-        Exec: func(ctx context.Context, args []string) error {
-            fmt.Println("args", args)
-            return nil
-        },
-        Subcommands: []*climan.Command{
-            &climan.Command{
-                Name: "sub",
-            },
-        },
-        // Options: []climan.Option{climan.WithEnvVarPrefix("EXAMPLE")},
-    }
-    if err := root.Parse(os.Args[1:]); err != nil {
-        log.Fatal(fmt.Errorf("parse error: %w", err))
-    }
+	if err := root.Parse(os.Args[1:]); err != nil {
+		log.Fatal(fmt.Errorf("parse error: %w", err))
+	}
 
-    if err := root.Run(context.Background()); err != nil {
-        log.Fatal(fmt.Errorf("run error: %w", err))
-    }
+	if err := root.Run(context.Background()); err != nil {
+		log.Fatal(fmt.Errorf("run error: %w", err))
+	}
+}
+
+func doRoot(ctx context.Context, args []string) error {
+	fmt.Println("args", args)
+	return nil
+}
+
+func doFoo(ctx context.Context, args []string) error {
+	fmt.Println("flag", opts.fooFlag)
+	return nil
 }
 ```
 
@@ -86,15 +103,18 @@ func Example() {
 TYPES
 
 type Command struct {
-    Name         string
-    Exec         func(context.Context, []string) error
-    FlagsBuilder func(fs *flag.FlagSet)
-    Subcommands  []*Command
-    ShortUsage   string
-    ShortHelp    string
-    LongHelp     string
+	Name           string
+	Exec           func(context.Context, []string) error
+	FlagSetBuilder func(fs *flag.FlagSet)
+	Subcommands    []*Command
+	ShortUsage     string
+	ShortHelp      string
+	LongHelp       string
+	FFOptions      []ff.Option
+	FlagSet        *flag.FlagSet
+	UsageFunc      func(c *Command) string
 
-    // Has unexported fields.
+	// Has unexported fields.
 }
 
 func (c *Command) Parse(args []string) error
