@@ -1,6 +1,6 @@
 # climan
 
-:smile: climan
+:smile: CLI manager library, heavily inspired by [ffcli](https://github.com/peterbourgon/ff).
 
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/moul.io/climan)
 [![License](https://img.shields.io/badge/license-Apache--2.0%20%2F%20MIT-%2397ca00.svg)](https://github.com/moul/climan/blob/main/COPYRIGHT)
@@ -18,18 +18,89 @@
 
 [![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/moul/climan)
 
+This package is originally based on [peterbourgon's `ff` package](https://github.com/peterbourgon/ff) (Apache2 License).
+
+It implements small changes that don't fit with the original's author Goals and Non-goals.
+
+---
+
+Changes include:
+
+* Adding an optional `Command.FlagSetBuilder` callback to configure commands and subcommands dynamically and support sharing the same flag targets.
+* Using `flag.ContinueOnError` by default instead of `flag.ExitOnError`.
+* Printing usage instead of an returning an error if a command does not implements an `Exec` func.
+* Use a different `DefaultUsageFunc`.
+
+## Example
+
+[embedmd]:# (example_test.go /import\ / $)
+```go
+import (
+    "context"
+    "flag"
+    "fmt"
+    "log"
+    "os"
+
+    "moul.io/climan"
+)
+
+func Example() {
+    var opts struct {
+        Debug bool
+    }
+
+    root := &climan.Command{
+        Name:       "example",
+        ShortUsage: "example [global flags] <subcommand> [flags] [args...]",
+        ShortHelp:  "example's short help",
+        LongHelp:   "example's longer help.\nwith more details.",
+        FlagsBuilder: func(fs *flag.FlagSet) {
+            fs.BoolVar(&opts.Debug, "debug", opts.Debug, "debug mode")
+        },
+        Exec: func(ctx context.Context, args []string) error {
+            fmt.Println("args", args)
+            return nil
+        },
+        Subcommands: []*climan.Command{
+            &climan.Command{
+                Name: "sub",
+            },
+        },
+        // Options: []climan.Option{climan.WithEnvVarPrefix("EXAMPLE")},
+    }
+    if err := root.Parse(os.Args[1:]); err != nil {
+        log.Fatal(fmt.Errorf("parse error: %w", err))
+    }
+
+    if err := root.Run(context.Background()); err != nil {
+        log.Fatal(fmt.Errorf("run error: %w", err))
+    }
+}
+```
+
 ## Usage
 
-[embedmd]:# (.tmp/usage.txt console)
-```console
-foo@bar:~$ climan hello world
-            _                                                   _                      _        _
- __ _  ___ | | __ _  _ _   __ _  ___  _ _  ___  _ __  ___  ___ | |_  ___  _ __   _ __ | | __ _ | |_  ___
-/ _` |/ _ \| |/ _` || ' \ / _` ||___|| '_|/ -_)| '_ \/ _ \|___||  _|/ -_)| '  \ | '_ \| |/ _` ||  _|/ -_)
-\__, |\___/|_|\__,_||_||_|\__, |     |_|  \___|| .__/\___/      \__|\___||_|_|_|| .__/|_|\__,_| \__|\___|
-|___/                     |___/                |_|                              |_|
-12 CPUs, /home/moul/.local/bin/climan, fwrz, go1.16.4
-args ["climan","hello","world"]
+[embedmd]:# (.tmp/godoc.txt txt /TYPES/ $)
+```txt
+TYPES
+
+type Command struct {
+    Name         string
+    Exec         func(context.Context, []string) error
+    FlagsBuilder func(fs *flag.FlagSet)
+    Subcommands  []*Command
+    ShortUsage   string
+    ShortHelp    string
+    LongHelp     string
+
+    // Has unexported fields.
+}
+
+func (c *Command) Parse(args []string) error
+
+func (c *Command) Run(ctx context.Context) error
+
 ```
 
 ## Install
